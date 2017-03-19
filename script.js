@@ -97,36 +97,59 @@ function getArrayOfHrefs(elements) {
     return hrefs;
 }
 
-function wordFilter() {
-    var observer = new MutationObserver(function(mutations) {
-        mutations.forEach(function(mutation) {
-            var newNodes = mutation.addedNodes;
-            if (newNodes !== null) {
-                var nodes = document.querySelectorAll('.fbUserContent, .userContentWrapper, ._1bar, ._5my2, ._4qjp, ._2kg4, ._4-u2');
-                for (var ii = 0, nn = nodes.length; ii < nn; ii++) {
-                    var text = nodes[ii] ? nodes[ii].textContent.toLowerCase() : '';
-                    if (text && text.indexOf('trump') >= 0 && nodes[ii].style.display != 'none') {
-                        nodes[ii].style.display = 'none';
-                        chrome.runtime.sendMessage({ action: "removeTrump" });
-                    }
-                    else if (text && text.indexOf('wilders') >= 0 && nodes[ii].style.display != 'none') {
-                        nodes[ii].style.display = 'none';
-                        chrome.runtime.sendMessage({ action: "removeWilders" });
-                    }
-                    else if (text && text.indexOf('rutte') >= 0 && nodes[ii].style.display != 'none') {
-                        nodes[ii].style.display = 'none';
-                        chrome.runtime.sendMessage({ action: "removeRutte" });
-                    }
-                }
+// Variables
+var regex = /Trump/i;
+var search = regex.exec(document.body.innerText);
 
-            }
-        });
-    });
+var selector = ":contains('Trump'), :contains('TRUMP'), :contains('trump')";
 
-    observer.observe(document, {
-        childList: true,
-        subtree: true,
-        attributes: false,
-        characterData: false,
-    });
+
+// Functions
+function filterMild() {
+    console.log("Filtering Trump with Mild filter...");
+    return $(selector).filter("h1,h2,h3,h4,h5,p,span,li");
+}
+
+function filterDefault () {
+    console.log("Filtering Trump with Default filter...");
+    return $(selector).filter(":only-child").closest('div');
+}
+
+function filterVindictive() {
+    console.log("Filtering Trump with Vindictive filter...");
+    return $(selector).filter(":not('body'):not('html')");
+}
+
+function getElements(filter) {
+   if (filter == "mild") {
+       return filterMild();
+   } else if (filter == "vindictive") {
+       return filterVindictive();
+   } else if (filter == "aggro") {
+       return filterDefault();
+   } else {
+     return filterMild();
+   }
+}
+
+function filterElements(elements) {
+    console.log("Elements to filter: ", elements);
+    elements.fadeOut("fast");
+}
+
+
+// Implementation
+if (search) {
+   console.log("Donald Trump found on page! - Searching for elements...");
+   chrome.storage.sync.get({
+     filter: 'aggro',
+   }, function(items) {
+       console.log("Filter setting stored is: " + items.filter);
+       elements = getElements(items.filter);
+       filterElements(elements);
+       chrome.runtime.sendMessage({method: "saveStats", trumps: elements.length}, function(response) {
+              console.log("Logging " + elements.length + " trumps.");
+         });
+     });
+  chrome.runtime.sendMessage({}, function(response) {});
 }
